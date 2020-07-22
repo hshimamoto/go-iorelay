@@ -23,10 +23,7 @@ func session(conn net.Conn, fwd string) {
     }
     defer fconn.Close()
 
-    l_rw := iorelay.NewTimeoutReadWriter(conn, time.Minute)
-    f_rw := iorelay.NewTimeoutReadWriter(fconn, time.Minute)
-
-    iorelay.Relay(l_rw, f_rw)
+    iorelay.RelayWithTimeout(conn, fconn, time.Minute)
 }
 
 func main() {
