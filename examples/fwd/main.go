@@ -1,5 +1,5 @@
 // go-iorelay/examples/fwd
-// MIT License Copyright(c) 2019 Hiroshi Shimamoto
+// MIT License Copyright(c) 2019, 2020 Hiroshi Shimamoto
 // vim:set sw=4 sts=4:
 
 package main
@@ -8,6 +8,7 @@ import (
     "log"
     "net"
     "os"
+    "time"
 
     "github.com/hshimamoto/go-iorelay"
 )
@@ -22,8 +23,12 @@ func session(conn net.Conn, fwd string) {
     }
     defer fconn.Close()
 
-    iorelay.Relay(conn, fconn)
+    l_rw := iorelay.NewTimeoutReadWriter(conn, time.Minute)
+    f_rw := iorelay.NewTimeoutReadWriter(fconn, time.Minute)
+
+    iorelay.Relay(l_rw, f_rw)
 }
+
 func main() {
     if len(os.Args) < 3 {
 	log.Println("fwd listen dial")
