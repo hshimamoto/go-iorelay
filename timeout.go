@@ -30,11 +30,17 @@ func (rw *TimeoutReadWriter)Read(p []byte) (int, error) {
 	n, err := rw.rw.Read(p)
 	ch <- ReadResult{n, err}
     }()
-    select {
-    case res := <-ch:
-	return res.n, res.err
-    case <-time.After(rw.timeout):
-	return 0, errors.New("iorelay Timeout")
+    now := time.Now()
+    to := now.Add(rw.timeout)
+    for {
+	select {
+	case res := <-ch:
+	    return res.n, res.err
+	case <-time.After(time.Second):
+	    if time.Now().After(to) {
+		return 0, errors.New("iorelay Timeout")
+	    }
+	}
     }
 }
 
