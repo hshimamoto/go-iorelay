@@ -13,10 +13,16 @@ import (
 type TimeoutReadWriter struct {
     rw io.ReadWriter
     timeout time.Duration
+    timer *time.Timer
 }
 
 func NewTimeoutReadWriter(rw io.ReadWriter, timeout time.Duration) *TimeoutReadWriter {
-    return &TimeoutReadWriter{rw, timeout}
+    trw := &TimeoutReadWriter{rw: rw, timeout: timeout}
+    trw.timer = time.NewTimer(time.Hour)
+    if !trw.timer.Stop() {
+	<-trw.timer.C
+    }
+    return trw
 }
 
 type ReadResult struct {
@@ -25,21 +31,25 @@ type ReadResult struct {
 }
 
 func (rw *TimeoutReadWriter)Read(p []byte) (int, error) {
+    stopped := false
+    defer func() {
+	if !stopped && !rw.timer.Stop() {
+	    <-rw.timer.C
+	}
+    }()
+    rw.timer.Reset(rw.timeout)
     ch := make(chan ReadResult, 1)
     go func() {
 	n, err := rw.rw.Read(p)
 	ch <- ReadResult{n, err}
     }()
-    now := time.Now()
-    to := now.Add(rw.timeout)
     for {
 	select {
 	case res := <-ch:
 	    return res.n, res.err
-	case <-time.After(time.Second):
-	    if time.Now().After(to) {
-		return 0, errors.New("iorelay Timeout")
-	    }
+	case <-rw.timer.C:
+	    stopped = true
+	    return 0, errors.New("iorelay Timeout")
 	}
     }
 }
